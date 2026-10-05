@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1418">
+<title>ماسح الدخول — اللقاء العام</title>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0b1418; --bg2:#0f2a2c; --card:rgba(255,255,255,.04); --card-line:rgba(255,255,255,.08);
+    --field:#121d22; --field-line:#3a5459; --ink:#f1f5f4; --muted:#8a9a9c;
+    --mint:#19e3c0; --mint2:#0fb89c; --glow:rgba(25,227,192,.35);
+    /* ألوان الشعار — بجرعات صغيرة */
+    --amber:#F7A64B; --brown:#BB642F; --flame:#EE2B0D;
+  }
+  * { box-sizing:border-box; }
+  html { background:var(--bg); }
+  body { margin:0; min-height:100vh; font-family:'Cairo',sans-serif; color:var(--ink);
+         background:radial-gradient(120% 60% at 50% -10%, #11504a 0%, var(--bg2) 35%, var(--bg) 70%); background-attachment:fixed; overflow-x:hidden; }
+
+  .orbs { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+  .orbs span { position:absolute; border-radius:50%; }
+  .orbs .w { background:radial-gradient(circle at 35% 30%, #fff, #d9dede); box-shadow:0 10px 40px rgba(0,0,0,.4); }
+  .orbs .d { background:radial-gradient(circle at 35% 30%, #3a4448, #1b2326); border:1px solid rgba(255,255,255,.06); }
+  .orbs .o1 { width:80px; height:80px; bottom:120px; left:-44px; opacity:.85; }
+  .orbs .o2 { width:150px; height:150px; bottom:-60px; right:-50px; opacity:.6; }
+  .orbs .o3 { width:60px; height:60px; top:30px; right:-18px; }
+
+  .wrap { position:relative; z-index:1; max-width:520px; margin:0 auto; padding:20px 16px 40px; }
+  .brand { display:inline-block; font-size:12px; font-weight:700; color:var(--amber);
+           border:1px solid rgba(247,166,75,.4); border-radius:999px; padding:3px 12px; background:rgba(247,166,75,.07); }
+  h1 { font-size:26px; margin:10px 0 0; font-weight:800; }
+  .rule { margin-top:12px; width:96px; }
+  .rule i { display:block; height:3px; border-radius:3px; background:linear-gradient(90deg, transparent, var(--amber)); }
+  .rule i + i { height:2px; width:62%; margin-top:4px; background:linear-gradient(90deg, transparent, var(--flame)); opacity:.85; }
+
+  .card { background:var(--card); border:1px solid var(--card-line); border-radius:24px; padding:20px; margin-top:18px;
+          backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); box-shadow:0 20px 50px rgba(0,0,0,.35); }
+  label { display:block; font-weight:700; font-size:14px; margin:16px 0 8px; color:#dfe7e6; }
+  input { width:100%; padding:14px 16px; border:1.5px solid var(--field-line); border-radius:16px; font:inherit; font-size:16px;
+          background:var(--field); color:var(--ink); outline:none; }
+  input::placeholder { color:#5b6b6e; }
+  input:focus { border-color:var(--mint); box-shadow:0 0 0 3px rgba(25,227,192,.15); }
+  button { width:100%; padding:15px; border:0; border-radius:16px; font:inherit; font-size:17px; font-weight:800; cursor:pointer; margin-top:18px;
+           background:linear-gradient(135deg, #2af5d0, var(--mint2)); color:#04201b; box-shadow:0 10px 28px var(--glow); }
+  button:active { transform:scale(.98); }
+  button:disabled { opacity:.55; }
+  button.ghost { background:transparent; color:var(--ink); border:1.5px solid var(--field-line); box-shadow:none; font-weight:700; margin-top:10px; font-size:15px; padding:12px; }
+  .err { color:#ff8a6b; margin-top:12px; min-height:1em; font-size:14px; }
+  .hidden { display:none !important; }
+
+  /* العدّادات */
+  .stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-top:16px; }
+  .stats div { background:var(--card); border:1px solid var(--card-line); border-radius:16px; padding:8px 6px; text-align:center; }
+  .stats b { display:block; font-size:24px; line-height:1.2; }
+  .stats span { font-size:12px; color:var(--muted); }
+  .stats .p b { color:var(--mint); }
+  .stats .q b { color:var(--amber); }
+  .top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .who { font-size:13px; color:var(--muted); }
+  .net { display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); border:1px solid var(--card-line); border-radius:999px; padding:4px 10px; }
+  .net i { width:9px; height:9px; border-radius:50%; background:#6b7280; }
+  .net.on i { background:var(--mint); box-shadow:0 0 8px var(--mint); }
+  .net.off i { background:var(--flame); box-shadow:0 0 8px var(--flame); }
+
+  /* النتيجة */
+  .result { margin-top:14px; border-radius:22px; padding:18px; text-align:center; min-height:150px;
+            display:flex; align-items:center; justify-content:center; position:relative; overflow:hidden; transition:background .15s; }
+  .result .tag { display:inline-block; font-size:13px; font-weight:700; padding:3px 12px; border-radius:999px; background:rgba(0,0,0,.22); margin-bottom:6px; }
+  .result .t { font-size:28px; font-weight:800; line-height:1.3; }
+  .result .grp { font-size:20px; font-weight:700; margin:6px 0 2px; }
+  .result .grp b { font-size:34px; font-weight:800; margin-right:4px; }
+  .result .l { font-size:16px; margin-top:2px; opacity:.95; }
+  .result.idle { background:var(--card); border:1.5px dashed var(--field-line); color:var(--muted); }
+  .result.ok   { color:#fff; box-shadow:0 14px 40px rgba(0,0,0,.4); }
+  .result .ws { display:inline-block; margin:6px 0 2px; padding:4px 14px; border-radius:999px; font-weight:700; color:#fff; border:2px solid rgba(255,255,255,.85); }
+  .result.ok::after { content:''; position:absolute; width:160px; height:160px; border-radius:50%; background:rgba(255,255,255,.12); left:-50px; top:-60px; }
+  .result.warn { background:linear-gradient(135deg, var(--amber), var(--brown)); color:#1d0f04; }
+  .result.bad  { background:linear-gradient(135deg, #f0482a, #a5180a); color:#fff; }
+
+  .search { margin-top:14px; background:var(--card); border:1px solid var(--card-line); border-radius:22px; padding:14px; }
+  .search input { font-size:18px; padding:16px; border-color:var(--mint); }
+  .qrow { display:flex; gap:8px; }
+  .qrow input { flex:1; min-width:0; }
+  .qrow button { width:auto; margin:0; padding:0 16px; font-size:16px; border-radius:16px; flex:none;
+                 background:var(--field); color:var(--mint); border:1.5px solid var(--field-line); box-shadow:none; }
+  .search .hint { color:var(--muted); font-size:12px; margin-top:8px; }
+  #list div { padding:12px 6px; border-bottom:1px solid rgba(255,255,255,.06); cursor:pointer; }
+  #list div:last-child { border-bottom:0; }
+  #list small { color:var(--muted); }
+  #list .done { color:var(--mint); }
+
+  /* شاشة واحدة بلا نزول */
+  #main { padding-top:4px; }
+  .topR { display:flex; align-items:center; gap:8px; }
+  .stats { margin-top:10px; }
+  .stats div { padding:5px 4px; display:flex; align-items:baseline; justify-content:center; gap:6px; }
+  .stats b { display:inline; font-size:20px; }
+  .stats .r b { color:#ff9b85; }
+  .prog { position:relative; height:16px; margin-top:8px; border-radius:999px; background:rgba(255,255,255,.07); overflow:hidden; }
+  .prog i { position:absolute; inset:0 auto 0 0; width:0; border-radius:999px; background:linear-gradient(90deg, var(--mint2), var(--mint)); transition:width .4s; }
+  .prog span { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#dfe7e6; }
+  .ico { width:auto; margin:0; padding:0; border:0; box-shadow:none; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
+  .ico.sm { width:32px; height:32px; border-radius:50%; font-size:18px; background:var(--card); color:var(--mint); border:1px solid var(--card-line); }
+  .camBtn { position:absolute; top:10px; width:44px; height:44px; border-radius:50%; font-size:20px; color:#fff;
+            background:rgba(0,0,0,.45); border:1px solid rgba(255,255,255,.25); z-index:3; backdrop-filter:blur(6px); }
+  .camBtn.r { right:10px; } .camBtn.l { left:10px; }
+  .cam .result { position:absolute; inset:0; margin:0; border-radius:0; z-index:4; min-height:0;
+                 display:flex; flex-direction:column; align-items:center; justify-content:center; animation:pop .18s ease-out; }
+  .cam .result.hidden { display:none; }
+  @keyframes pop { from { opacity:0; transform:scale(.96) } to { opacity:1; transform:none } }
+  .last { margin-top:8px; font-size:13px; color:var(--muted); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .last b { color:var(--ink); }
+  .search { margin-top:8px; padding:10px; }
+  .search input { padding:13px 14px; font-size:17px; }
+  #list { max-height:34vh; overflow:auto; }
+  /* الكاميرا */
+  .cam { position:relative; margin-top:10px; border-radius:24px; overflow:hidden; background:#000; height:min(52vh, 92vw);
+         border:1px solid var(--card-line); box-shadow:0 20px 50px rgba(0,0,0,.35); }
+  .cam video { width:100%; height:100%; object-fit:cover; display:block; }
+  .cam .frame { position:absolute; inset:16%; border-radius:22px; pointer-events:none;
+                box-shadow:0 0 0 999px rgba(0,0,0,.35); }
+  .cam .frame::before, .cam .frame::after { content:''; position:absolute; inset:0; border-radius:22px;
+                border:3px solid var(--mint); -webkit-mask:linear-gradient(#000 0 0) top/100% 22% no-repeat, linear-gradient(#000 0 0) bottom/100% 22% no-repeat;
+                mask:linear-gradient(#000 0 0) top/100% 22% no-repeat, linear-gradient(#000 0 0) bottom/100% 22% no-repeat; }
+  .cam .line { position:absolute; left:18%; right:18%; height:2px; top:18%; background:linear-gradient(90deg, transparent, var(--mint), transparent);
+               box-shadow:0 0 12px var(--mint); animation:sweep 2.2s ease-in-out infinite; }
+  @keyframes sweep { 0%,100% { top:18% } 50% { top:80% } }
+  .cam .msg { position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; text-align:center;
+              padding:24px; color:#dfe7e6; font-size:15px; background:rgba(11,20,24,.85); }
+  .cam .flash { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .25s; }
+  .camRow { display:flex; gap:8px; margin-top:10px; }
+  .camRow button { margin:0; padding:11px; font-size:14px; }
+  /* النتيجة: المجموعة كبيرة */
+  .result .big { display:flex; gap:10px; justify-content:center; margin:10px 0 4px; }
+  .result .big div { background:rgba(255,255,255,.16); border:2px solid rgba(255,255,255,.55); border-radius:18px; padding:4px 18px; min-width:96px; }
+  .result .big small { display:block; font-size:13px; font-weight:700; opacity:.9; }
+  .result .big b { display:block; font-size:44px; line-height:1.1; font-weight:800; }
+</style>
+</head>
+<body>
+<div class="orbs"><span class="w o1"></span><span class="d o2"></span><span class="d o3"></span></div>
+<div class="wrap">
+
+  <!-- الدخول -->
+  <div id="login">
+    <div style="padding-top:28px"><span class="brand">المنظمون</span></div>
+    <h1>ماسح الدخول</h1>
+    <div class="rule"><i></i><i></i></div>
+    <div class="card">
+      <label>الرمز السري</label>
+      <input id="pin" type="password" inputmode="numeric">
+      <label>اسم المنظم</label>
+      <input id="scannerName">
+      <button id="go">بدء المسح</button>
+      <div class="err" id="loginErr"></div>
+    </div>
+  </div>
+
+  <!-- المسح -->
+  <div id="main" class="hidden">
+    <div class="top">
+      <span class="who" id="whoAmI"></span>
+      <span class="topR">
+        <span class="net" id="net"><i></i><span id="netTxt">...</span></span>
+        <button id="refresh" class="ico sm" type="button" title="تحديث قائمة المسجّلين">↻</button>
+      </span>
+    </div>
+    <div class="stats">
+      <div class="p"><b id="nPresent">0</b><span>حاضر</span></div>
+      <div class="r"><b id="nLeft">0</b><span>متبقٍ</span></div>
+      <div class="q"><b id="nQueue">0</b><span>في الانتظار</span></div>
+    </div>
+    <div class="prog"><i id="progBar"></i><span id="progTxt">0%</span></div>
+
+    <div class="cam" id="cam">
+      <video id="video" playsinline muted></video>
+      <div class="frame"></div><div class="line"></div>
+      <div class="msg hidden" id="camMsg"></div>
+      <button id="camToggle" class="ico camBtn r" type="button" title="إيقاف / تشغيل الكاميرا">⏸</button>
+      <button id="camSwitch" class="ico camBtn l" type="button" title="تبديل الكاميرا">⟲</button>
+      <div id="result" class="result hidden"></div>
+    </div>
+    <div class="last hidden" id="last"></div>
+
+    <div class="search">
+      <div class="qrow">
+        <input id="q" placeholder="بدون بطاقة؟ رقم الرمز (مثل 7)" autocomplete="off" enterkeyhint="search" inputmode="numeric">
+        <button id="kbd" type="button" title="تبديل لوحة المفاتيح">أ ب</button>
+      </div>
+      <div id="list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const S = { pin:'', scanner:'', roster:{}, colors:{}, present:new Set(), queue:[], sending:false, last:{ code:'', t:0 } };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+const $ = id => document.getElementById(id);
+// ⚠️ ضع هنا رابط تطبيق الماسح في Apps Script (ينتهي بـ /exec)
+const API = 'https://script.google.com/macros/s/AKfycbwUDbk9fKTU7SddCNrDlR4P-ojiMz5F9i5br2v_uABT7WUVjv-jLlZBkvbJtJ2X0LgCsQ/exec';
+
+// إرسال طلب إلى Apps Script — نص عادي حتى لا يرفضه المتصفح (CORS)
+async function api(action, extra) {
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 25000);
+  try {
+    const r = await fetch(API, { method: 'POST', body: JSON.stringify(Object.assign({ action, pin: S.pin }, extra || {})),
+                                 headers: { 'Content-Type': 'text/plain;charset=utf-8' }, signal: ctl.signal });
+    const j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'خطأ');
+    return j.data;
+  } finally { clearTimeout(t); }
+}
+let AC = null;
+
+// roster[code] = [الاسم, اللقب, المدرسة, الورشة, الوظيفة, اسم الأب, المجموعة]
+const fullName = p => p[0] + ' ' + p[1];
+
+// استرجاع ما حُفظ في الهاتف
+S.queue = store.get('queue', []);
+store.get('present', []).forEach(c => S.present.add(c));
+const savedLogin = store.get('login', null);
+if (savedLogin) { $('pin').value = savedLogin.pin; $('scannerName').value = savedLogin.scanner; }
+
+$('go').addEventListener('click', async () => {
+  S.pin = $('pin').value.trim();
+  S.scanner = $('scannerName').value.trim();
+  if (!S.pin || !S.scanner) return $('loginErr').textContent = 'أدخل الرمز السري واسمك';
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {}
+  $('go').disabled = true; $('go').textContent = 'جارٍ تحميل القائمة...';
+  try {
+    await loadRoster();
+  } catch (e) {
+    // بلا شبكة: نستعمل آخر قائمة محفوظة إن كان نفس الرمز
+    const cache = store.get('roster', null);
+    if (cache && savedLogin && savedLogin.pin === S.pin) {
+      S.roster = cache.roster; S.colors = cache.colors; setNet(false);
+    } else {
+      $('go').disabled = false; $('go').textContent = 'بدء المسح';
+      return $('loginErr').textContent = /fetch|abort|network/i.test(e.message || '') ? 'تعذّر الاتصال — تحقق من الإنترنت' : (e.message || 'تعذّر الاتصال');
+    }
+  }
+  store.set('login', { pin: S.pin, scanner: S.scanner });
+  $('whoAmI').textContent = 'المنظم: ' + S.scanner;
+  $('login').classList.add('hidden'); $('main').classList.remove('hidden');
+  updateStats(); startCam();
+  setInterval(flush, 3000);
+  setInterval(pollPresent, 20000);
+  setInterval(() => loadRoster().catch(() => setNet(false)), 120000);
+});
+
+// ملء «الخزان»: كل المسجّلين في الهاتف
+async function loadRoster() {
+  const d = await api('roster');
+  S.roster = d.roster; S.colors = d.colors;
+  syncPresent(d.present);
+  store.set('roster', { roster: d.roster, colors: d.colors });
+  savePresent(); setNet(true); updateStats();
+}
+
+$('refresh').addEventListener('click', () => {
+  $('refresh').style.opacity = .4;
+  loadRoster().catch(() => setNet(false)).finally(() => $('refresh').style.opacity = 1);
+});
+
+// التحقق — محلي وفوري
+function checkIn(raw, manual) {
+  const code = String(raw).trim().toUpperCase();
+  const now = Date.now();
+
+  const p = S.roster[code];
+  if (!p) { show('bad', 'غير مسجّل', code, 'يُوجَّه إلى طاولة الاستقبال'); feedback('bad'); return; }
+  if (S.present.has(code)) { show('warn', fullName(p), p[3], 'سبق تسجيل دخوله', 'مكرر', null, p[6]); feedback('warn'); return; }
+
+  S.present.add(code);
+  S.queue.push({ code, time: now, scanner: S.scanner });
+  savePresent(); store.set('queue', S.queue);
+  show('ok', fullName(p), p[3] || 'الورشة غير محددة', p[2], 'مرحباً ✔', S.colors[p[3]], p[6]);
+  feedback('ok'); updateStats(); flush();
+}
+
+// الإرسال للجدول في الخلفية
+async function flush() {
+  if (S.sending || S.polling || !S.queue.length) return;
+  S.sending = true;
+  const batch = S.queue.slice(0, 50);
+  try {
+    const r = await api('record', { items: batch });
+    const sent = new Set(batch.map(b => b.code));
+    S.queue = S.queue.filter(b => !sent.has(b.code));
+    syncPresent(r.present);
+    store.set('queue', S.queue); savePresent(); setNet(true);
+  } catch (e) { setNet(false); }
+  finally { S.sending = false; updateStats(); }
+}
+
+let hideT = null;
+function show(kind, title, line1, line2, tag, color, group) {
+  const r = $('result');
+  r.className = 'result ' + kind;
+  clearTimeout(hideT); hideT = setTimeout(() => r.classList.add('hidden'), 2500);
+  const lt = { ok: '✔', warn: '⚠ مكرر', bad: '✖ غير مسجّل' }[kind];
+  $('last').classList.remove('hidden');
+  $('last').innerHTML = `آخر مسح: ${lt} <b>${esc(title)}</b>${group ? ' · المجموعة ' + esc(group) : ''}${line1 && kind !== 'bad' ? ' · ' + esc(line1) : ''}`;
+  // القبول دائماً أخضر؛ لون الورشة يظهر في شارتها فقط
+  r.style.background = kind === 'ok' ? 'linear-gradient(135deg, #22c55e, #15803d)' : '';
+  const l1 = kind === 'ok' && color
+    ? `<span class="ws" style="background:${color}">${esc(line1 || '')}</span>`
+    : esc(line1 || '');
+  r.innerHTML = `<div>${tag ? `<span class="tag">${esc(tag)}</span>` : ''}<div class="t">${esc(title)}</div>`
+    + `<div class="l">${l1}</div>${group ? `<div class="big"><div><small>المجموعة</small><b>${esc(group)}</b></div></div>` : ''}`
+    + `<div class="l">${esc(line2 || '')}</div></div>`;
+}
+// تغميق اللون قليلاً للتدرّج
+function shade(hex) {
+  const n = parseInt(String(hex).replace('#', ''), 16);
+  if (isNaN(n)) return hex;
+  const f = v => Math.max(0, Math.round(v * .65));
+  return '#' + [f(n >> 16 & 255), f(n >> 8 & 255), f(n & 255)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function feedback(kind) {
+  const tone = { ok: [880, .12], warn: [520, .25], bad: [220, .4] }[kind];
+  try {
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.frequency.value = tone[0]; g.gain.value = .15;
+    o.connect(g); g.connect(AC.destination); o.start(); o.stop(AC.currentTime + tone[1]);
+  } catch (e) {}
+  try { navigator.vibrate(kind === 'ok' ? 80 : kind === 'warn' ? [60, 60, 60] : 300); } catch (e) {}
+}
+
+function updateStats() {
+  const total = Object.keys(S.roster).length;
+  let here = 0; S.present.forEach(c => { if (S.roster[c]) here++; });   // فقط المسجّلون فعلاً
+  $('nPresent').textContent = here;
+  $('nLeft').textContent = Math.max(0, total - here);
+  $('nQueue').textContent = S.queue.length;
+  const pct = total ? Math.round(here * 100 / total) : 0;
+  $('progBar').style.width = pct + '%';
+  $('progTxt').textContent = here + ' من ' + total + ' · ' + pct + '%';
+}
+
+// عدد الحضور المشترك: كل 20 ثانية نسأل الشيت (عمود واحد فقط — طلب خفيف)
+async function pollPresent() {
+  if (S.sending || S.polling || document.hidden) return;
+  S.polling = true;
+  try { const d = await api('present'); if (!S.sending) syncPresent(d.present); setNet(true); updateStats(); }
+  catch (e) { setNet(false); }
+  finally { S.polling = false; }
+}
+function setNet(on) { $('net').className = 'net ' + (on ? 'on' : 'off'); $('netTxt').textContent = on ? 'متصل' : 'بلا اتصال'; }
+// الشيت هو المرجع: من حُذف من صفحة الحضور يُنسى في الهاتف أيضاً
+// (نُبقي فقط من مُسح في هذا الهاتف ولم يُرسل بعد)
+function syncPresent(list) {
+  S.present = new Set(list.concat(S.queue.map(q => q.code)));
+  savePresent();
+}
+function savePresent() { store.set('present', [...S.present]); }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+
+// البحث: بالرمز أو برقمه فقط أو بالاسم — يتجاهل الهمزات والتاء المربوطة
+// لوحة المفاتيح: أرقام افتراضياً، وزر للتبديل إلى الحروف للبحث بالاسم
+$('kbd').addEventListener('click', () => {
+  const q = $('q'), toText = q.inputMode === 'numeric';
+  q.inputMode = toText ? 'text' : 'numeric';
+  q.placeholder = toText ? 'الاسم أو اللقب' : 'رقم الرمز (مثل 7)';
+  $('kbd').textContent = toText ? '123' : 'أ ب';
+  q.blur(); setTimeout(() => q.focus(), 50);   // لإظهار اللوحة الجديدة
+});
+
+const norm = s => String(s).replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآٱ]/g, 'ا')
+  .replace(/ة/g, 'ه').replace(/ى/g, 'ي').toUpperCase().trim();
+let matches = [];
+
+function search(raw) {
+  const q = norm(raw);
+  if (!q) return [];
+  const all = Object.entries(S.roster);
+  // رقم فقط ← يطابق نهاية الرمز (7 ← IST26-0007)
+  if (/^\d+$/.test(q)) {
+    const n = parseInt(q, 10);
+    return all.filter(([c]) => parseInt(c.replace(/\D+/g, '').slice(-4), 10) === n);
+  }
+  if (q.length < 2) return [];
+  return all.filter(([c, p]) => c.includes(q) || norm(fullName(p)).includes(q) || norm(p[1] + ' ' + p[0]).includes(q));
+}
+
+function pick(c) {
+  checkIn(c);
+  $('q').value = ''; $('list').innerHTML = ''; matches = [];
+}
+
+$('q').addEventListener('input', () => {
+  matches = search($('q').value).slice(0, 15);
+  const list = $('list'); list.innerHTML = '';
+  matches.forEach(([c, p]) => {
+    const d = document.createElement('div');
+    d.innerHTML = `${S.present.has(c) ? '<span class="done">✔ </span>' : ''}<b>${esc(fullName(p))}</b>`
+      + ` <small>بن ${esc(p[5])}</small><br><small>${esc(p[2])} — ${esc(p[3])} — ${c}</small>`;
+    d.addEventListener('click', () => pick(c));
+    list.appendChild(d);
+  });
+  if ($('q').value.trim() && !matches.length) list.innerHTML = '<div style="cursor:default"><small>لا توجد نتيجة</small></div>';
+});
+
+// زر «إدخال/بحث» في لوحة المفاتيح: يسجّل مباشرة إن كانت نتيجة واحدة
+$('q').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  if (matches.length === 1) pick(matches[0][0]);
+  else if (!matches.length && $('q').value.trim()) { checkIn($('q').value); $('q').value = ''; $('list').innerHTML = ''; }
+});
+
+// ====== الكاميرا: مسح متواصل ======
+const CAM = { want: true, stream: null, on: false, facing: 'environment', busy: false, detector: null, canvas: document.createElement('canvas') };
+if ('BarcodeDetector' in window) { try { CAM.detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) {} }
+
+async function startCam() {
+  stopCam();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return camMsg('هذا المتصفح لا يدعم الكاميرا — استعمل البحث بالرمز في الأسفل');
+  try {
+    CAM.stream = await navigator.mediaDevices.getUserMedia({ audio: false,
+      video: { facingMode: CAM.facing, width: { ideal: 1280 }, height: { ideal: 720 } } });
+    const v = $('video'); v.srcObject = CAM.stream; await v.play();
+    CAM.on = true; camMsg(''); $('camToggle').textContent = '⏸';
+    tick();
+  } catch (e) {
+    camMsg(e.name === 'NotAllowedError'
+      ? 'لم يُسمح بالكاميرا. اضغط على القفل 🔒 بجانب الرابط واسمح بالكاميرا، ثم اضغط ▶'
+      : 'تعذّر تشغيل الكاميرا — استعمل البحث بالرمز في الأسفل');
+    $('camToggle').textContent = '▶';
+  }
+}
+function stopCam() {
+  CAM.on = false;
+  if (CAM.stream) CAM.stream.getTracks().forEach(t => t.stop());
+  CAM.stream = null;
+}
+function camMsg(t) { $('camMsg').textContent = t; $('camMsg').classList.toggle('hidden', !t); }
+
+$('camToggle').addEventListener('click', () => {
+  CAM.want = !CAM.on;
+  if (CAM.on) { stopCam(); camMsg('الكاميرا متوقفة — اضغط ▶ لتشغيلها'); $('camToggle').textContent = '▶'; }
+  else startCam();
+});
+$('camSwitch').addEventListener('click', () => { CAM.facing = CAM.facing === 'environment' ? 'user' : 'environment'; startCam(); });
+
+// نفس البطاقة لا تُقرأ مرة ثانية ما دامت أمام الكاميرا (تُقبل من جديد بعد غيابها 3 ثوانٍ)
+let lastCode = '', lastAt = 0, pauseUntil = 0;
+async function tick() {
+  if (!CAM.on) return;
+  const v = $('video');
+  if (!CAM.busy && Date.now() > pauseUntil && v.readyState >= 2 && v.videoWidth) {
+    CAM.busy = true;
+    try {
+      const code = await readFrame(v);
+      if (code) {
+        const c = code.trim().toUpperCase();
+        const now = Date.now();
+        if (c !== lastCode || now - lastAt > 3000) {
+          lastCode = c; pauseUntil = now + 2000;
+          checkIn(c);
+        }
+        lastAt = now;
+      }
+    } catch (e) {}
+    CAM.busy = false;
+  }
+  setTimeout(tick, 120);
+}
+
+async function readFrame(v) {
+  if (CAM.detector) {
+    const r = await CAM.detector.detect(v);
+    return r.length ? r[0].rawValue : '';
+  }
+  // jsQR: نقرأ مربع الوسط فقط بدقة مصغّرة — أسرع بكثير
+  const side = Math.min(v.videoWidth, v.videoHeight), S2 = 480;
+  const c = CAM.canvas; c.width = S2; c.height = S2;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.drawImage(v, (v.videoWidth - side) / 2, (v.videoHeight - side) / 2, side, side, 0, 0, S2, S2);
+  const img = x.getImageData(0, 0, S2, S2);
+  const r = jsQR(img.data, S2, S2, { inversionAttempts: 'dontInvert' });
+  return r ? r.data : '';
+}
+
+// إيقاف الكاميرا عند مغادرة الصفحة لتوفير البطارية، وإعادتها عند الرجوع
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) stopCam();
+  else if (!$('main').classList.contains('hidden') && CAM.want) startCam();
+});
+</script>
+</body>
+</html>
