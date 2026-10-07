@@ -2,9 +2,14 @@
 // غيّر الرقم عند كل تحديث كبير لإجبار الهواتف على أخذ الجديد
 const CACHE = 'github-v1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+// مكتبات وخطوط من الإنترنت: تُحفظ من أول زيارة حتى تعمل الصفحة بلا اتصال
+const EXTRA = ["https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js", "https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;800&display=swap"];
 
 self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all([
+    c.addAll(SHELL),
+    ...EXTRA.map(u => fetch(u, { mode: 'no-cors' }).then(r => c.put(u, r)).catch(() => {}))
+  ])).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
