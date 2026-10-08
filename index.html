@@ -137,7 +137,13 @@
                box-shadow:0 0 12px var(--mint); animation:sweep 2.2s ease-in-out infinite; }
   @keyframes sweep { 0%,100% { top:18% } 50% { top:80% } }
   .cam .msg { position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; text-align:center;
-              padding:24px; color:#dfe7e6; font-size:15px; background:rgba(11,20,24,.85); }
+              padding:24px; color:#dfe7e6; font-size:15px; background:#0d1a1e; }
+  .cam .msg .pn { max-width:300px; }
+  .cam .msg .ic { font-size:46px; line-height:1; margin-bottom:8px; }
+  .cam .msg h3 { margin:0 0 6px; font-size:19px; color:#fff; }
+  .cam .msg p { margin:0 0 4px; font-size:14px; color:#c9d4d3; line-height:1.7; }
+  .cam .msg ol { text-align:right; margin:6px 0 0; padding-right:20px; font-size:14px; color:#dfe7e6; line-height:1.8; }
+  .cam .msg .big { width:auto; margin:14px auto 0; padding:14px 26px; font-size:18px; display:inline-flex; gap:8px; align-items:center; }
   .cam .flash { position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .25s; }
   .camRow { display:flex; gap:8px; margin-top:10px; }
   .camRow button { margin:0; padding:11px; font-size:14px; }
@@ -256,7 +262,7 @@ $('go').addEventListener('click', async () => {
   store.set('login', { pin: S.pin, scanner: S.scanner });
   $('whoAmI').textContent = 'المنظم: ' + S.scanner;
   $('login').classList.add('hidden'); $('main').classList.remove('hidden');
-  updateStats(); startCam();
+  updateStats(); firstCam();
   setInterval(flush, 3000);
   setInterval(pollPresent, 20000);
   setInterval(() => loadRoster().catch(() => setNet(false)), 120000);
@@ -431,16 +437,16 @@ if ('BarcodeDetector' in window) { try { CAM.detector = new BarcodeDetector({ fo
 async function startCam() {
   stopCam();
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return camMsg('هذا المتصفح لا يدعم الكاميرا — استعمل البحث بالرمز في الأسفل');
+  camMsg('');
   try {
     CAM.stream = await navigator.mediaDevices.getUserMedia({ audio: false,
       video: { facingMode: CAM.facing, width: { ideal: 1280 }, height: { ideal: 720 } } });
     const v = $('video'); v.srcObject = CAM.stream; await v.play();
-    CAM.on = true; camMsg(''); $('camToggle').textContent = '⏸';
+    CAM.on = true; CAM.want = true; camMsg(''); $('camToggle').textContent = '⏸';
+    store.set('camOK', true);
     tick();
   } catch (e) {
-    camMsg(e.name === 'NotAllowedError'
-      ? 'لم يُسمح بالكاميرا. اضغط على القفل 🔒 بجانب الرابط واسمح بالكاميرا، ثم اضغط ▶'
-      : 'تعذّر تشغيل الكاميرا — استعمل البحث بالرمز في الأسفل');
+    camPanel(e.name === 'NotAllowedError' || e.name === 'SecurityError' ? 'denied' : 'error');
     $('camToggle').textContent = '▶';
   }
 }
@@ -451,9 +457,45 @@ function stopCam() {
 }
 function camMsg(t) { $('camMsg').textContent = t; $('camMsg').classList.toggle('hidden', !t); }
 
+// أول مرة: زر واضح بدل التشغيل التلقائي، حتى يفهم المنظم سؤال الهاتف ويضغط «سماح»
+async function firstCam() {
+  if (store.get('camOK', false)) return startCam();
+  try {
+    const st = await navigator.permissions.query({ name: 'camera' });
+    if (st.state === 'granted') return startCam();
+    if (st.state === 'denied') return camPanel('denied');
+  } catch (e) {}
+  camPanel('start');
+}
+
+// لوحة داخل إطار الكاميرا: تشغيل أول مرة / ممنوعة / متوقفة / خطأ
+function camPanel(kind) {
+  const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const ios = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const steps = ios
+    ? '<li>اضغط <b>aA</b> يسار الرابط ← <b>إعدادات موقع الويب</b></li><li><b>الكاميرا</b> ← <b>سماح</b></li>'
+    : installed
+      ? '<li>اضغط مطولاً على أيقونة <b>الماسح</b> ← <b>ⓘ معلومات التطبيق</b></li><li><b>الأذونات</b> ← <b>الكاميرا</b> ← <b>سماح</b></li>'
+      : '<li>اضغط على <b>🔒</b> يسار الرابط في الأعلى</li><li><b>الأذونات</b> ← <b>الكاميرا</b> ← <b>سماح</b></li>';
+  const P = {
+    start:   `<div class="ic">📷</div><h3>تشغيل الكاميرا</h3><p>سيسألك الهاتف عن الإذن:<br>اضغط <b>«سماح»</b></p>
+              <button type="button" class="big" data-cam>📷 تشغيل الكاميرا</button>`,
+    denied:  `<div class="ic">🚫</div><h3>الكاميرا غير مسموح بها</h3><ol>${steps}<li>ثم ارجع واضغط الزر</li></ol>
+              <button type="button" class="big" data-cam>🔄 أعد المحاولة</button>`,
+    stopped: `<div class="ic">⏸</div><h3>الكاميرا متوقفة</h3><button type="button" class="big" data-cam>▶ تشغيل الكاميرا</button>`,
+    error:   `<div class="ic">⚠️</div><h3>تعذّر تشغيل الكاميرا</h3><p>قد تكون مستعملة في تطبيق آخر.<br>أغلقه ثم أعد المحاولة، أو ابحث بالرمز في الأسفل.</p>
+              <button type="button" class="big" data-cam>🔄 أعد المحاولة</button>`
+  };
+  const box = $('camMsg');
+  box.innerHTML = `<div class="pn">${P[kind]}</div>`;
+  box.classList.remove('hidden');
+  const b = box.querySelector('[data-cam]'); if (b) b.addEventListener('click', startCam);
+  $('camToggle').textContent = '▶';
+}
+
 $('camToggle').addEventListener('click', () => {
   CAM.want = !CAM.on;
-  if (CAM.on) { stopCam(); camMsg('الكاميرا متوقفة — اضغط ▶ لتشغيلها'); $('camToggle').textContent = '▶'; }
+  if (CAM.on) { stopCam(); camPanel('stopped'); }
   else startCam();
 });
 $('camSwitch').addEventListener('click', () => { CAM.facing = CAM.facing === 'environment' ? 'user' : 'environment'; startCam(); });
@@ -500,7 +542,7 @@ async function readFrame(v) {
 // إيقاف الكاميرا عند مغادرة الصفحة لتوفير البطارية، وإعادتها عند الرجوع
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) stopCam();
-  else if (!$('main').classList.contains('hidden') && CAM.want) startCam();
+  else if (!$('main').classList.contains('hidden') && CAM.want && store.get('camOK', false)) startCam();
 });
 </script>
 <script>
